@@ -10,6 +10,8 @@
   "license": "ISC",
   "dependencies": {
     "cheerio": "^0.22.0",
+    "date": "^1.0.2",
+    "datejs": "^1.0.0-rc3",
     "express": "^4.14.0",
     "lodash": "^4.17.2",
     "pug": "^2.0.0-beta6",
