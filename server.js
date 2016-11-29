@@ -44,6 +44,9 @@ request(url, function (error, response, html) {
     var total      = $('tfoot .first', table).next().text();
     var totalInt   = parseInt(total.replace(/,/g, ''), 10);
 
+    /**
+     * Anything below 1300 is an obvious logging error for me
+     */
     if (totalInt >= 1500) {
       totals.push({
         date: dateString,
@@ -80,29 +83,51 @@ request(url, function (error, response, html) {
   updateCurrentWeightLossRate(averages);
 
 
+  function calculateWeightLossMacros(currentWeight, calories) {
+    var gProtein   = currentWeight;
+    var percentage = (((currentWeight * 4) / calories) + .25) * 100;
+    var carbsPerc  = 100 - percentage;
+    var gCarbs     = ((carbsPerc / 100) * calories) / 4;
+    var gFat       = (calories * 0.25) / 9;
+
+    return {
+      proteinGrams: gProtein.toFixed(2),
+      carbsGrams: gCarbs.toFixed(2),
+      fatGrams: gFat.toFixed(2)
+    }
+  }
+
   /**
    * get the averages of the averages for determining final TDEE
    * and current average weightloss
    */
-
+  /**
+   * this function does TOO MUCH!
+   * @param averages
+   * @param desiredWeightlossPerWeek
+   * @returns {{TDEE: *, currentWeightLossRate: *, recommendedCalories: number}}
+   */
   function calculateGoals(averages, desiredWeightlossPerWeek) {
     const CALORIES_IN_FAT     = 3500;
     var averageCalories       = _.meanBy(averages, 'calories');
     var currentWeightLossRate = _.meanBy(averages, 'weightLossRate');
     var currentDeficit        = (CALORIES_IN_FAT * currentWeightLossRate) / 7;
     var desiredDeficit        = (CALORIES_IN_FAT * desiredWeightlossPerWeek) / 7;
-    var deficitDiff           = desiredDeficit - currentDeficit;
+    var deficitDiff           = desiredDeficit - currentDeficit; // i'm not totally sure if we need this?
     var TDEE                  = averageCalories + currentDeficit;
     var recommendedCalories   = TDEE - desiredDeficit;
 
     return {
-      TDEE,
-      currentWeightLossRate,
-      recommendedCalories
+      TDEE: parseInt(TDEE, 10),
+      currentWeightLossRate: currentWeightLossRate.toFixed(2),
+      recommendedCalories: parseInt(recommendedCalories, 10)
     }
   }
 
-  var goals = calculateGoals(averages, DESIRED_WEIGHTLOSS_PER_WEEK);
+
+  var goals  = calculateGoals(averages, DESIRED_WEIGHTLOSS_PER_WEEK);
+  var macros = calculateWeightLossMacros(_.findLast(weights), goals.recommendedCalories);
+  goals      = _.merge(goals, macros);
   console.log(goals);
 
 });
