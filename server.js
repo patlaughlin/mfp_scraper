@@ -1,17 +1,22 @@
+var User       = require('./models/user');
+var Calculator = require('./models/calculator');
 /**
  * weight-tracking for the neurotic
  */
 
-const DESIRED_WEIGHTLOSS_PER_WEEK = 1.5; // in lbs
-
-var fs      = require('fs');
-var request = require('request');
-var cheerio = require('cheerio');
-var _       = require('lodash');
+var fs         = require('fs');
+var request    = require('request');
+var cheerio    = require('cheerio');
+var _          = require('lodash');
 
 // Day i started my diet to another year in the future.
 var url = 'http://www.myfitnesspal.com/reports/printable_diary/prlaugh?from=2016-11-1&to=2017-11-1';
 
+var user = new User({
+  firstName: 'Patrick',
+  desiredWeightLossRate: 1.5,
+  dietingStartDate: '2016-11-02'
+});
 
 /**
  * Modifies our averages object
@@ -83,19 +88,18 @@ request(url, function (error, response, html) {
   updateCurrentWeightLossRate(averages);
 
 
-  function calculateWeightLossMacros(currentWeight, calories) {
+  function calculateWeightLossMacros(currentWeight, calories, user) {
     var gProtein   = currentWeight;
     var percentage = (((currentWeight * 4) / calories) + .25) * 100;
     var carbsPerc  = 100 - percentage;
     var gCarbs     = ((carbsPerc / 100) * calories) / 4;
     var gFat       = (calories * 0.25) / 9;
 
-    return {
-      proteinGrams: gProtein.toFixed(2),
-      carbsGrams: gCarbs.toFixed(2),
-      fatGrams: gFat.toFixed(2)
-    }
+    user.proteinGrams = gProtein.toFixed(2);
+    user.carbsGrams   = gCarbs.toFixed(2);
+    user.fatGrams     = gFat.toFixed(2);
   }
+
 
   /**
    * get the averages of the averages for determining final TDEE
@@ -107,7 +111,7 @@ request(url, function (error, response, html) {
    * @param desiredWeightlossPerWeek
    * @returns {{TDEE: *, currentWeightLossRate: *, recommendedCalories: number}}
    */
-  function calculateGoals(averages, desiredWeightlossPerWeek) {
+  function calculateGoals(averages, desiredWeightlossPerWeek, user) {
     const CALORIES_IN_FAT     = 3500;
     var averageCalories       = _.meanBy(averages, 'calories');
     var currentWeightLossRate = _.meanBy(averages, 'weightLossRate');
@@ -117,17 +121,16 @@ request(url, function (error, response, html) {
     var TDEE                  = averageCalories + currentDeficit;
     var recommendedCalories   = TDEE - desiredDeficit;
 
-    return {
-      TDEE: parseInt(TDEE, 10),
-      currentWeightLossRate: currentWeightLossRate.toFixed(2),
-      recommendedCalories: parseInt(recommendedCalories, 10)
-    }
+    user.TDEE                  = parseInt(TDEE, 10);
+    user.currentWeightLossRate = currentWeightLossRate.toFixed(2);
+    user.recommendedCalories   = parseInt(recommendedCalories, 10);
   }
 
 
-  var goals  = calculateGoals(averages, DESIRED_WEIGHTLOSS_PER_WEEK);
-  var macros = calculateWeightLossMacros(_.findLast(weights), goals.recommendedCalories);
-  goals      = _.merge(goals, macros);
-  console.log(goals);
+  calculateGoals(averages, user.desiredWeightLossRate, user);
+  calculateWeightLossMacros(_.findLast(weights), user.recommendedCalories, user);
+  user.totalWeightLost = Calculator.getTotalWeightLost(averages, weights, user);
+
+  console.log(user);
 
 });
