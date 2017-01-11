@@ -10,12 +10,12 @@ var cheerio    = require('cheerio');
 var _          = require('lodash');
 
 // Day i started my diet to another year in the future.
-var url = 'http://www.myfitnesspal.com/reports/printable_diary/prlaugh?from=2016-11-1&to=2017-11-1';
+var url = 'http://www.myfitnesspal.com/reports/printable_diary/prlaugh?from=2016-11-21&to=2017-11-1';
 
 var user = new User({
   firstName: 'Patrick',
-  desiredWeightLossRate: 1.5,
-  dietingStartDate: '2016-11-02'
+  desiredWeightLossRate: -1.5,
+  dietingStartDate: '2016-11-21'
 });
 
 /**
@@ -46,9 +46,16 @@ request(url, function (error, response, html) {
     var date       = new Date(Date.parse($(this).text()));
     var dateString = `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
     var table      = $(this).next('table');
-    var total      = $('tfoot .first', table).next().text();
+    var $total     = $('tfoot .first', table).next();
+    var total      = $total.text();
+    var gCarbs     = parseInt($total.next().text(), 10);
+    var gFat       = parseInt($total.next().next().text(), 10);
+    var gProtein   = parseInt($total.next().next().next().text(), 10);
     var totalInt   = parseInt(total.replace(/,/g, ''), 10);
 
+    var realCalories = ((gCarbs * 4) + (gFat * 9) + (gProtein * 4));
+
+    console.log(`${dateString}: ${realCalories}`);
     /**
      * Anything below 1300 is an obvious logging error for me
      */
@@ -130,7 +137,18 @@ request(url, function (error, response, html) {
   calculateGoals(averages, user.desiredWeightLossRate, user);
   calculateWeightLossMacros(_.findLast(weights), user.recommendedCalories, user);
   user.totalWeightLost = Calculator.getTotalWeightLost(averages, weights, user);
-
-  console.log(user);
-
 });
+//
+// var restify = require('restify');
+//
+// function respond(req, res, next) {
+//   res.send(user);
+//   next();
+// }
+//
+// var server = restify.createServer();
+// server.get('/users/:name', respond);
+//
+// server.listen(8080, function() {
+//   console.log('%s listening at %s', server.name, server.url);
+// });

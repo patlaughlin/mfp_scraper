@@ -12,10 +12,13 @@
     "cheerio": "^0.22.0",
     "date": "^1.0.2",
     "datejs": "^1.0.0-rc3",
+    "db-migrate-pg": "^0.1.11",
     "express": "^4.14.0",
     "lodash": "^4.17.2",
+    "pg": "^6.1.0",
     "pug": "^2.0.0-beta6",
-    "request": "^2.79.0"
+    "request": "^2.79.0",
+    "restify": "^4.3.0"
   },
   "devDependencies": {
     "mocha": "^3.2.0"

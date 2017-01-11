@@ -1,0 +1,9 @@
+{
+  "dev": {
+    "driver": "pg",
+    "user": "patricklaughlin1",
+    "password": "pica2186",
+    "host": "localhost",
+    "database": "diet_app"
+  }
+}
