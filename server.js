@@ -10,7 +10,7 @@ var cheerio    = require('cheerio');
 var _          = require('lodash');
 
 // Day i started my diet to another year in the future.
-var url = 'http://www.myfitnesspal.com/reports/printable_diary/prlaugh?from=2019-01-23&to=2020-01-23';
+var url = 'http://www.myfitnesspal.com/reports/printable_diary/prlaugh?from=2019-02-16&to=2020-01-23';
 
 var user = new User({
   firstName: 'Patrick',
@@ -53,9 +53,10 @@ request(url, function (error, response, html) {
     var gProtein   = parseInt($total.next().next().next().text(), 10);
     var totalInt   = parseInt(total.replace(/,/g, ''), 10);
 
-    // var realCalories = ((gCarbs * 4) + (gFat * 9) + (gProtein * 4));
+    var realCalories = ((gCarbs * 4) + (gFat * 9) + (gProtein * 4));
 
-    console.log(`${dateString}: ${gFat}, ${gCarbs}, ${gProtein}`);
+    // console.log(`${dateString}: ${gFat}, ${gCarbs}, ${gProtein}`);
+    console.log(`${dateString}: ${realCalories}`);
     /**
      * Anything below 1300 is an obvious logging error for me
      */

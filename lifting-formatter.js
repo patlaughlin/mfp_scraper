@@ -7,7 +7,7 @@ const csv = require('csvtojson');
  * 2019-01-05
  * @type {string}
  */
-const dateToFormat = '2019-02-05';
+const dateToFormat = '2019-04-01';
 
 /**
  * NOTE: we're only doing straight sets of weight right now. this could change in the future
