@@ -1,21 +1,23 @@
-var User       = require('./models/user');
+var User = require('./models/user');
 var Calculator = require('./models/calculator');
 /**
  * weight-tracking for the neurotic
  */
 
-var fs         = require('fs');
-var request    = require('request');
-var cheerio    = require('cheerio');
-var _          = require('lodash');
+var fs = require('fs');
+var request = require('request');
+var cheerio = require('cheerio');
+var _ = require('lodash');
+var parse = require('csv-parse/lib/sync');
+const moment = require('moment');
 
 // Day i started my diet to another year in the future.
 var url = 'http://www.myfitnesspal.com/reports/printable_diary/prlaugh?from=2019-02-16&to=2020-01-23';
 
 var user = new User({
-  firstName: 'Patrick',
-  desiredWeightLossRate: -1.5,
-  dietingStartDate: '2016-11-21'
+    firstName: 'Patrick',
+    desiredWeightLossRate: -1.5,
+    dietingStartDate: '2016-11-21'
 });
 
 /**
@@ -24,120 +26,133 @@ var user = new User({
  * @returns {Array}
  */
 function updateCurrentWeightLossRate(averages) {
-  averages.filter((el, i) => {
-    return averages[i + 1];
-  }).forEach((el, i) => {
-    el.weightLossRate = el.weight - averages[i + 1].weight;
-  });
+    averages.filter((el, i) => {
+        return averages[i + 1];
+    }).forEach((el, i) => {
+        el.weightLossRate = el.weight - averages[i + 1].weight;
+    });
 }
 
 request(url, function (error, response, html) {
-  if (error) {
-    throw error;
-  }
-
-  var $       = cheerio.load(html);
-  var totals  = [];
-  var weights = JSON.parse(fs.readFileSync('./weight-log.json'));
-  // var weightsValuesArr = _.mapValues(weights);
-
-  // console.log($('table'));
-  $('.main-title-2').each(function (index) {
-    var date       = new Date(Date.parse($(this).text()));
-    var dateString = `${date.getFullYear()}-${('0' + (date.getMonth() + 1)).slice(-2)}-${('0' + date.getDate()).slice(-2)}`;
-    var table      = $(this).next('table');
-    var $total     = $('tfoot .first', table).next();
-    var total      = $total.text();
-    var gCarbs     = parseInt($total.next().text(), 10);
-    var gFat       = parseInt($total.next().next().text(), 10);
-    var gProtein   = parseInt($total.next().next().next().text(), 10);
-    var totalInt   = parseInt(total.replace(/,/g, ''), 10);
-
-    var realCalories = ((gCarbs * 4) + (gFat * 9) + (gProtein * 4));
-
-    // console.log(`${dateString}: ${gFat}, ${gCarbs}, ${gProtein}`);
-    console.log(`${dateString}: ${realCalories}`);
-    /**
-     * Anything below 1300 is an obvious logging error for me
-     */
-    if (totalInt >= 1500) {
-      totals.push({
-        date: dateString,
-        total: totalInt,
-        weight: null
-      });
+    if (error) {
+        throw error;
     }
-  });
 
-  /**
-   * Add corresponding date to totals dictionary
-   */
-  totals.forEach(el => {
-    el.weight = weights[el.date];
-  });
+    var $ = cheerio.load(html);
+    var totals = [];
+    const weights = fs.readFileSync('./data/weights.csv');
+    const weightsCsv = parse(weights);
+    const cols = weightsCsv[0];
+    const weightCols = weightsCsv.map(row => _.zipObject(cols, row));
 
-  /**
-   * pluck out any days with unlogged weight
-   */
-  _.remove(totals, {weight: undefined});
+    let updatedWeights = [];
 
-  var totalsChunkedByWeek = _.chunk(totals, 7);
-  var averages            = [];
+    $('.main-title-2').each(function (index) {
+        const date = moment(Date.parse($(this).text())).format('YYYY-MM-DD');
+        const table = $(this).next('table');
+        const $total = $('tfoot .first', table).next();
+        const total = $total.text();
+        const gCarbs = parseInt($total.next().text(), 10);
+        const gFat = parseInt($total.next().next().text(), 10);
+        const gProtein = parseInt($total.next().next().next().text(), 10);
+        const totalInt = parseInt(total.replace(/,/g, ''), 10);
 
-  totalsChunkedByWeek.forEach(function (week) {
-    averages.push({
-      weekOf: week[0].date,
-      calories: _.meanBy(week, 'total'),
-      weight: _.meanBy(week, 'weight'),
-      weightLossRate: null
+        const realCalories = ((gCarbs * 4) + (gFat * 9) + (gProtein * 4));
+
+        // console.log(`${dateString}: ${gFat}, ${gCarbs}, ${gProtein}`);
+        // console.log(`${dateString}: ${realCalories}`);
+        /**
+         * Anything below 1300 is an obvious logging error for me
+         */
+
+        const weightObj = _.find(weightCols, ['Date', date]);
+        _.set(weightObj, 'Calories', realCalories);
+
+        updatedWeights.push(weightObj);
+
+        // if (totalInt >= 1500) {
+        //     totals.push({
+        //         date: dateString,
+        //         total: realCalories,
+        //         weight: null
+        //     });
+        // }
     });
-  });
 
-  updateCurrentWeightLossRate(averages);
+    const weightsByWeek = _.groupBy(updatedWeights, (result) => moment(result['Date'], 'YYYY-MM-DD').startOf('isoWeek'));
+    console.log(weightsByWeek);
 
+    /**
+     * Add corresponding date to totals dictionary
+     */
+    totals.forEach(el => {
+        el.weight = weights[el.date];
+    });
 
-  function calculateWeightLossMacros(currentWeight, calories, user) {
-    var gProtein   = currentWeight;
-    var percentage = (((currentWeight * 4) / calories) + .25) * 100;
-    var carbsPerc  = 100 - percentage;
-    var gCarbs     = ((carbsPerc / 100) * calories) / 4;
-    var gFat       = (calories * 0.25) / 9;
+    /**
+     * pluck out any days with unlogged weight
+     */
+    _.remove(totals, {weight: undefined});
 
-    user.proteinGrams = gProtein.toFixed(2);
-    user.carbsGrams   = gCarbs.toFixed(2);
-    user.fatGrams     = gFat.toFixed(2);
-  }
-
-
-  /**
-   * get the averages of the averages for determining final TDEE
-   * and current average weightloss
-   */
-  /**
-   * this function does TOO MUCH!
-   * @param averages
-   * @param desiredWeightlossPerWeek
-   * @returns {{TDEE: *, currentWeightLossRate: *, recommendedCalories: number}}
-   */
-  function calculateGoals(averages, desiredWeightlossPerWeek, user) {
-    const CALORIES_IN_FAT     = 3500;
-    var averageCalories       = _.meanBy(averages, 'calories');
-    var currentWeightLossRate = _.meanBy(averages, 'weightLossRate');
-    var currentDeficit        = (CALORIES_IN_FAT * currentWeightLossRate) / 7;
-    var desiredDeficit        = (CALORIES_IN_FAT * desiredWeightlossPerWeek) / 7;
-    var deficitDiff           = desiredDeficit - currentDeficit; // i'm not totally sure if we need this?
-    var TDEE                  = averageCalories + currentDeficit;
-    var recommendedCalories   = TDEE - desiredDeficit;
-
-    user.TDEE                  = parseInt(TDEE, 10);
-    user.currentWeightLossRate = currentWeightLossRate.toFixed(2);
-    user.recommendedCalories   = parseInt(recommendedCalories, 10);
-  }
+    var totalsChunkedByWeek = _.chunk(totals, 7);
+    var averages = [];
 
 
-  calculateGoals(averages, user.desiredWeightLossRate, user);
-  calculateWeightLossMacros(_.findLast(weights), user.recommendedCalories, user);
-  user.totalWeightLost = Calculator.getTotalWeightLost(averages, weights, user);
+    totalsChunkedByWeek.forEach(function (week) {
+        averages.push({
+            weekOf: week[0].date,
+            calories: _.meanBy(week, 'total'),
+            weight: _.meanBy(week, 'weight'),
+            weightLossRate: null
+        });
+    });
+
+
+    updateCurrentWeightLossRate(averages);
+
+
+    function calculateWeightLossMacros(currentWeight, calories, user) {
+        var gProtein = currentWeight;
+        var percentage = (((currentWeight * 4) / calories) + .25) * 100;
+        var carbsPerc = 100 - percentage;
+        var gCarbs = ((carbsPerc / 100) * calories) / 4;
+        var gFat = (calories * 0.25) / 9;
+
+        user.proteinGrams = gProtein.toFixed(2);
+        user.carbsGrams = gCarbs.toFixed(2);
+        user.fatGrams = gFat.toFixed(2);
+    }
+
+
+    /**
+     * get the averages of the averages for determining final TDEE
+     * and current average weightloss
+     */
+    /**
+     * this function does TOO MUCH!
+     * @param averages
+     * @param desiredWeightlossPerWeek
+     * @returns {{TDEE: *, currentWeightLossRate: *, recommendedCalories: number}}
+     */
+    function calculateGoals(averages, desiredWeightlossPerWeek, user) {
+        const CALORIES_IN_FAT = 3500;
+        var averageCalories = _.meanBy(averages, 'calories');
+        var currentWeightLossRate = _.meanBy(averages, 'weightLossRate');
+        var currentDeficit = (CALORIES_IN_FAT * currentWeightLossRate) / 7;
+        var desiredDeficit = (CALORIES_IN_FAT * desiredWeightlossPerWeek) / 7;
+        var deficitDiff = desiredDeficit - currentDeficit; // i'm not totally sure if we need this?
+        var TDEE = averageCalories + currentDeficit;
+        var recommendedCalories = TDEE - desiredDeficit;
+
+        user.TDEE = parseInt(TDEE, 10);
+        user.currentWeightLossRate = currentWeightLossRate.toFixed(2);
+        user.recommendedCalories = parseInt(recommendedCalories, 10);
+    }
+
+
+    calculateGoals(averages, user.desiredWeightLossRate, user);
+    calculateWeightLossMacros(_.findLast(weights), user.recommendedCalories, user);
+    user.totalWeightLost = Calculator.getTotalWeightLost(averages, weights, user);
 });
 //
 // var restify = require('restify');
