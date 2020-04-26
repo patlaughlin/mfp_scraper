@@ -12,7 +12,7 @@ var parse = require('csv-parse/lib/sync');
 const moment = require('moment');
 
 // Day i started my diet to another year in the future.
-var url = 'http://www.myfitnesspal.com/reports/printable_diary/prlaugh?from=2019-01-01&to=2020-01-01';
+var url = 'http://www.myfitnesspal.com/reports/printable_diary/prlaugh?from=2020-01-01&to=2021-01-01';
 
 var user = new User({
     firstName: 'Patrick',
@@ -40,11 +40,6 @@ request(url, function (error, response, html) {
 
     var $ = cheerio.load(html);
     var totals = [];
-    const weights = fs.readFileSync('./data/weights.csv');
-    const weightsCsv = parse(weights);
-    const cols = weightsCsv[0];
-    const weightCols = weightsCsv.map(row => _.zipObject(cols, row));
-
     let updatedWeights = [];
 
     $('.main-title-2').each(function (index) {
@@ -59,17 +54,10 @@ request(url, function (error, response, html) {
 
         let realCalories = ((gCarbs * 4) + (gFat * 9) + (gProtein * 4));
 
-        // console.log(`${dateString}: ${gFat}, ${gCarbs}, ${gProtein}`);
-        // console.log(`${dateString}: ${realCalories}`);
-        const weightObj = _.find(weightCols, ['Date', date]);
-        if (realCalories <= 1600) {
-            realCalories = 2400;
-        }
-        _.set(weightObj, 'Calories', realCalories);
-        _.set(weightObj, 'Recorded', parseFloat(weightObj.Recorded));
-        _.unset(weightObj, 'Moving Average');
-
-        updatedWeights.push(weightObj);
+        console.log(`${date}: ${gCarbs}, ${gFat}, ${gProtein}`);
+        // if (realCalories <= 1600) {
+        //     realCalories = 2400;
+        // }
     });
 
 
@@ -129,9 +117,9 @@ request(url, function (error, response, html) {
         user.fatGrams = gFat.toFixed(2);
     }
 
-    const myTDEE = getTDEE('2019-03-20', updatedWeights);
-    const targetCalories = getTargetCalories(myTDEE, 1);
-    console.log(`TDEE: ${myTDEE}`);
-    console.log(`You should eat: ${targetCalories} calories per day`);
+    // const myTDEE = getTDEE('2019-03-20', updatedWeights);
+    // const targetCalories = getTargetCalories(myTDEE, 1);
+    // console.log(`TDEE: ${myTDEE}`);
+    // console.log(`You should eat: ${targetCalories} calories per day`);
 });
 
