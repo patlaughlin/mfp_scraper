@@ -4,7 +4,9 @@ var _ = require('lodash');
 var player = require('play-sound')(opts = {});
 
 var url = 'https://www.repfitness.com/bars-plates/olympic-plates/iron-plates/rep-iron-plates';
+const time = 60000;
 
+console.log(`Checking every ${time} milliseconds`);
 const interval = setInterval(() => {
 
     request(url, function (error, response, html) {
@@ -13,13 +15,27 @@ const interval = setInterval(() => {
         }
 
         var $ = cheerio.load(html);
-        if ($.html().includes('iron plates')) {
+        var shop = $('.product-shop').html();
+        if ([
+            'add to cart',
+            'purchase',
+            'buy',
+        ].some(el => {
+            return shop.toLowerCase().includes(el)
+        })) {
             player.play('jiggy.mp3', err => {
                 if (err) throw err;
             });
+            console.log('BUY NOW!');
+            console.log('BUY NOW!');
+            console.log('BUY NOW!');
+            console.log('BUY NOW!');
+            console.log('BUY NOW!');
             clearInterval(interval);
-            console.log('found it')
+        } else {
+            console.log('Not yet...');
+            console.log('Checking again soon...');
         }
     });
 
-}, 6000);
+}, time);
